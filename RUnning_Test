@@ -1,0 +1,54 @@
+import requests
+import time
+
+# Konfigurasi API
+COINGECKO_URL = "https://api.coingecko.com/api/v3/search/trending"
+TELEGRAM_BOT_TOKEN = "8123204015:AAFcY0ybpfBG-oj2t7qLiyC03dT_vMvcBeI"
+CHAT_ID = "453680427"
+
+# Token yang ingin dipantau
+WATCHED_TOKENS = ["mind of pepe", "solaxy"]
+
+# Fungsi untuk mengirim pesan ke Telegram
+def send_telegram_message(message, repeat=False):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    params = {"chat_id": CHAT_ID, "text": message}
+    
+    # Jika repeat=True, kirim pesan berkala (setiap 5 menit selama 30 menit)
+    if repeat:
+        for _ in range(6):  # 6x5 menit = 30 menit
+            response = requests.get(url, params=params)
+            print("📩 Response dari Telegram:", response.json())
+            time.sleep(300)  # Tunggu 5 menit sebelum mengirim lagi
+    else:
+        response = requests.get(url, params=params)
+        print("📩 Response dari Telegram:", response.json())
+
+# Fungsi untuk mengecek listing di CoinGecko
+def check_coingecko():
+    try:
+        response = requests.get(COINGECKO_URL)
+        response.raise_for_status()
+        data = response.json()
+        print("📡 Response dari CoinGecko:", data)
+        
+        if "coins" in data:
+            trending_coins = [coin["item"]["name"].lower() for coin in data["coins"]]
+            found_tokens = [token for token in WATCHED_TOKENS if token in trending_coins]
+            
+            if found_tokens:
+                message = "🚀 Token berikut telah listing di CoinGecko:\n" + "\n".join([f"🔹 {token}" for token in found_tokens])
+                send_telegram_message(message, repeat=True)
+            else:
+                send_telegram_message("⏳ Token belum terdaftar, coba lagi nanti.")
+        else:
+            send_telegram_message("❌ Gagal mengambil data dari CoinGecko.")
+    except requests.exceptions.RequestException as e:
+        print("❌ Error saat mengambil data:", str(e))
+        send_telegram_message("❌ Gagal mengambil data dari CoinGecko.")
+
+# Jalankan pengecekan secara berkala
+if __name__ == "__main__":
+    while True:
+        check_coingecko()
+        time.sleep(1800)  # Cek setiap 30 menit
